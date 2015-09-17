@@ -5,19 +5,19 @@ import logging
 import re
 
 log = logging.getLogger("cobe.bot")
-
+log.setLevel(logging.DEBUG)
 
 class Bot(irc.client.SimpleIRCClient):
-    def __init__(self, brain, nick, channel, log_channel, ignored_nicks,
+    def __init__(self, brain, nick, channels, log_channel, ignored_nicks,
                  only_nicks):
         irc.client.SimpleIRCClient.__init__(self)
 
         # Fall back to latin-1 if invalid utf-8 is provided.
         irc.client.ServerConnection.buffer_class = irc.buffer.LenientDecodingLineBuffer
 
-        self.brain = brain
+	self.brain = brain
         self.nick = nick
-        self.channel = channel
+        self.channels = channels[0].split(" ")
         self.log_channel = log_channel
         self.ignored_nicks = ignored_nicks
         self.only_nicks = only_nicks
@@ -57,9 +57,10 @@ class Bot(irc.client.SimpleIRCClient):
 
     def on_endofmotd(self, conn, event):
         self._delayed_check()
-        self.connection.join(self.channel)
+	for channel in self.channels:
+	        self.connection.join(channel)
 
-        if self.log_channel:
+        if self.log_channel and irc.client.is_channel(self.log_channel):
             self.connection.join(self.log_channel)
 
     def on_pubmsg(self, conn, event):
@@ -70,7 +71,7 @@ class Bot(irc.client.SimpleIRCClient):
             return
 
         # ignore specified nicks
-        if self.ignored_nicks and user in self.ignored_nicks:
+        if self.ignored_nicks and user in self.ignored_nicks[0]:
             return
 
         # only respond on channels
@@ -97,7 +98,7 @@ class Bot(irc.client.SimpleIRCClient):
             to = None
             text = msg
 
-        if not self.only_nicks or user in self.only_nicks:
+        if not self.only_nicks or user in self.only_nicks[0]:
             self.brain.learn(text)
 
         if to == conn.nickname:
@@ -107,7 +108,7 @@ class Bot(irc.client.SimpleIRCClient):
 
 class Runner:
     def run(self, brain, args):
-        bot = Bot(brain, args.nick, args.channel, args.log_channel,
+        bot = Bot(brain, args.nick, args.channels, args.log_channel,
                   args.ignored_nicks, args.only_nicks)
         bot.connect(args.server, args.port, args.nick)
         log.info("connected to %s:%s", args.server, args.port)
@@ -126,4 +127,7 @@ class IrcLogHandler(logging.Handler):
         conn = self.connection
 
         if conn.is_connected():
-            conn.privmsg(self.channel, record.getMessage().encode("utf-8"))
+	    if len(record.getMessage()) >= 470:
+	            conn.privmsg(self.channel, record.getMessage()[:467] + "...")
+	    else:
+		    conn.privmsg(self.channel, record.getMessage())

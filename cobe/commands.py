@@ -224,8 +224,9 @@ class IrcClientCommand:
                                help="IRC server port")
         subparser.add_argument("-n", "--nick", default="cobe",
                                help="IRC nick")
-        subparser.add_argument("-c", "--channel", required=True,
-                               help="IRC channel")
+        subparser.add_argument("-c", "--channels", required=True, action = "append",
+			       dest = "channels",
+                               help="IRC channels")
         subparser.add_argument("-l", "--log-channel",
                                help="IRC channel for logging")
         subparser.add_argument("-i", "--ignore-nick", action="append",
